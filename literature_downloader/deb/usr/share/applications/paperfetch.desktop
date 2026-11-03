@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=文献快下
+Comment=从 DOI 表查询并下载文献
+Exec=/usr/bin/paperfetch --open
+TryExec=/usr/bin/paperfetch
+Icon=paperfetch
+Terminal=false
+Categories=Science;Education;

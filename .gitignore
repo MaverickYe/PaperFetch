@@ -1,0 +1,14 @@
+literature_downloader/data/*.sqlite3
+literature_downloader/data/*.lock
+literature_downloader/data/runs/
+literature_downloader/data/*.log
+build/
+dist/
+.venv/
+*.exe
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+PaperFetch-Ready/
+GitHub-Release-v1.1.1/

@@ -1,0 +1,9 @@
+Package: paperfetch
+Version: 1.1.1
+Section: science
+Priority: optional
+Architecture: amd64
+Maintainer: PaperFetch Project
+Description: PaperFetch local literature downloader
+ DOI list import, metadata lookup, full-text retrieval and manual processing
+ in a local browser interface.

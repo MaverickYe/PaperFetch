@@ -1,0 +1,36 @@
+name: Build Windows executable
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install runtime and packaging dependencies
+        run: python -m pip install -r literature_downloader/requirements.txt -r literature_downloader/build-requirements.txt
+      - name: Build executable
+        run: python -m PyInstaller --clean --noconfirm --distpath dist --workpath build_windows literature_downloader/paperfetch_onedir.spec
+      - name: Run executable smoke test
+        run: python literature_downloader/windows_smoke.py --executable dist/PaperFetch/PaperFetch.exe
+      - name: Package artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path windows-package/PaperFetch-Ready | Out-Null
+          Copy-Item dist/PaperFetch/* windows-package/PaperFetch-Ready/ -Recurse
+          Copy-Item README.md windows-package/PaperFetch-Ready/README.md
+          Compress-Archive -Path windows-package/PaperFetch-Ready -DestinationPath PaperFetch-Windows.zip -Force
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PaperFetch-Windows
+          path: PaperFetch-Windows.zip
