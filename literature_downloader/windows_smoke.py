@@ -24,6 +24,7 @@ from openpyxl import Workbook
 
 
 DOI = "10.1371/journal.pone.0044289"
+LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def http_json(base: str, token: str, path: str, method: str = "GET", payload=None):
@@ -32,7 +33,7 @@ def http_json(base: str, token: str, path: str, method: str = "GET", payload=Non
     if body is not None:
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(base + path, data=body, headers=headers, method=method)
-    with urllib.request.urlopen(request, timeout=45) as response:
+    with LOCAL_OPENER.open(request, timeout=45) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -55,7 +56,7 @@ def wait_for_service(data_dir: Path, process: subprocess.Popen) -> str:
             time.sleep(0.5)
             continue
         try:
-            with urllib.request.urlopen(base + "/", timeout=5) as response:
+            with LOCAL_OPENER.open(base + "/", timeout=5) as response:
                 html = response.read().decode("utf-8")
             match = re.search(r"const token='([^']+)'", html)
             if match:
@@ -117,7 +118,7 @@ def main() -> int:
         )
         try:
             base = wait_for_service(Path(directory), process)
-            with urllib.request.urlopen(base + "/", timeout=45) as response:
+            with LOCAL_OPENER.open(base + "/", timeout=45) as response:
                 html = response.read().decode("utf-8")
             match = re.search(r"const token='([^']+)'", html)
             if not match:
