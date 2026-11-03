@@ -36,13 +36,24 @@ def http_json(base: str, token: str, path: str, method: str = "GET", payload=Non
         return json.loads(response.read().decode("utf-8"))
 
 
-def wait_for_service(base: str, process: subprocess.Popen) -> str:
+def wait_for_service(data_dir: Path, process: subprocess.Popen) -> str:
     deadline = time.time() + 30
     last_error = ""
+    status_file = data_dir / "service.url"
     while time.time() < deadline:
         if process.poll() is not None:
             output = process.stdout.read().decode("utf-8", errors="replace") if process.stdout else ""
             raise RuntimeError(f"可执行文件提前退出，退出码={process.returncode}；{output[-1000:]}")
+        try:
+            base = status_file.read_text(encoding="utf-8").strip().rstrip("/")
+            if not re.fullmatch(r"http://127\.0\.0\.1:\d+", base):
+                base = ""
+        except OSError:
+            base = ""
+        if not base:
+            last_error = "服务尚未写入实际监听地址"
+            time.sleep(0.5)
+            continue
         try:
             with urllib.request.urlopen(base + "/", timeout=5) as response:
                 html = response.read().decode("utf-8")
@@ -53,7 +64,14 @@ def wait_for_service(base: str, process: subprocess.Popen) -> str:
         except (OSError, urllib.error.URLError) as exc:
             last_error = str(exc)
         time.sleep(0.5)
-    raise RuntimeError(f"等待本地服务超时：{last_error}")
+    diagnostics = []
+    error_log = data_dir / "service-error.log"
+    if error_log.is_file():
+        try:
+            diagnostics.append(error_log.read_text(encoding="utf-8", errors="replace")[-1000:])
+        except OSError:
+            pass
+    raise RuntimeError(f"等待本地服务超时：{last_error}; {' '.join(diagnostics)}")
 
 
 def make_workbook() -> bytes:
@@ -75,10 +93,12 @@ def main() -> int:
     if not executable.is_file():
         raise FileNotFoundError(executable)
 
-    base = f"http://127.0.0.1:{args.port}"
     with tempfile.TemporaryDirectory(prefix="paperfetch_windows_smoke_") as directory:
         env = os.environ.copy()
-        env["PAPERFETCH_PORT"] = str(args.port)
+        # Let Windows choose an unused loopback port and discover it through
+        # the status file. This avoids collisions with services on hosted runners.
+        env["PAPERFETCH_PORT"] = "0"
+        env["PAPERFETCH_NO_BROWSER"] = "1"
         env["PAPERFETCH_DATA"] = directory
         process = subprocess.Popen(
             [str(executable)],
@@ -88,7 +108,13 @@ def main() -> int:
             stderr=subprocess.STDOUT,
         )
         try:
-            token = wait_for_service(base, process)
+            base = wait_for_service(Path(directory), process)
+            with urllib.request.urlopen(base + "/", timeout=45) as response:
+                html = response.read().decode("utf-8")
+            match = re.search(r"const token='([^']+)'", html)
+            if not match:
+                raise RuntimeError("首页中未找到本地授权令牌")
+            token = match.group(1)
             imported = http_json(
                 base,
                 token,

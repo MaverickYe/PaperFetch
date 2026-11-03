@@ -58,6 +58,12 @@ def open_default_browser(url):
         pass
 
 
+def should_open_browser():
+    """Open a browser for interactive launches, but not for headless CI smoke tests."""
+    disabled = (os.environ.get('PAPERFETCH_NO_BROWSER') or '').strip().lower()
+    return disabled not in {'1', 'true', 'yes', 'on'} and ('--open' in sys.argv or getattr(sys, 'frozen', False))
+
+
 def healthy_existing_url():
     """Return the URL of a live instance without reading the locked file."""
     try:
@@ -101,7 +107,7 @@ def acquire_instance_lock():
             existing_url = ''
         if not existing_url:
             existing_url = healthy_existing_url()
-        if ('--open' in sys.argv or getattr(sys, 'frozen', False)) and existing_url.startswith('http://127.0.0.1:'):
+        if should_open_browser() and existing_url.startswith('http://127.0.0.1:'):
             open_default_browser(existing_url)
         try:
             lock.close()
@@ -283,7 +289,7 @@ def main():
     lock.flush()
     STATUS_FILE.write_text(url, encoding='utf-8')
     print(f'文献快下运行中：{url}', flush=True)
-    if '--open' in sys.argv or getattr(sys, 'frozen', False):
+    if should_open_browser():
         threading.Timer(0.5, lambda: open_default_browser(url)).start()
     try:
         server.serve_forever(poll_interval=0.5)
