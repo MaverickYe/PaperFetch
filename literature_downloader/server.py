@@ -49,6 +49,17 @@ def startup_trace(message):
         pass
 
 
+def safe_print(message, error=False):
+    """Print only when a console stream exists in the frozen windowed build."""
+    stream = sys.stderr if error else sys.stdout
+    if stream is None:
+        return
+    try:
+        print(message, file=stream, flush=True)
+    except Exception:
+        pass
+
+
 def service_error(message, exc=None):
     """Write a compact, local-only diagnostic without exposing it in the UI."""
     core.DATA.mkdir(parents=True, exist_ok=True)
@@ -298,7 +309,7 @@ def main():
         server = bind_server(port)
     except OSError as exc:
         service_error(f'无法绑定本地端口 {port}', exc)
-        print(f'文献快下无法使用端口 {port}：{exc}', file=sys.stderr, flush=True)
+        safe_print(f'文献快下无法使用端口 {port}：{exc}', error=True)
         raise SystemExit(4)
     startup_trace(f'main: bound port={server.server_port}')
     url = f'http://127.0.0.1:{server.server_port}/'
@@ -308,7 +319,7 @@ def main():
     lock.flush()
     STATUS_FILE.write_text(url, encoding='utf-8')
     startup_trace('main: status written')
-    print(f'文献快下运行中：{url}', flush=True)
+    safe_print(f'文献快下运行中：{url}')
     if should_open_browser():
         threading.Timer(0.5, lambda: open_default_browser(url)).start()
     try:
