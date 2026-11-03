@@ -71,6 +71,12 @@ def wait_for_service(data_dir: Path, process: subprocess.Popen) -> str:
             diagnostics.append(error_log.read_text(encoding="utf-8", errors="replace")[-1000:])
         except OSError:
             pass
+    trace_log = data_dir / "startup-trace.log"
+    if trace_log.is_file():
+        try:
+            diagnostics.append(trace_log.read_text(encoding="utf-8", errors="replace")[-1000:])
+        except OSError:
+            pass
     raise RuntimeError(f"等待本地服务超时：{last_error}; {' '.join(diagnostics)}")
 
 
@@ -99,9 +105,11 @@ def main() -> int:
         # the status file. This avoids collisions with services on hosted runners.
         env["PAPERFETCH_PORT"] = "0"
         env["PAPERFETCH_NO_BROWSER"] = "1"
+        env["PAPERFETCH_STARTUP_TRACE"] = "1"
         env["PAPERFETCH_DATA"] = directory
         process = subprocess.Popen(
             [str(executable)],
+            cwd=str(executable.parent),
             env=env,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,

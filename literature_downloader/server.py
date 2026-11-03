@@ -36,6 +36,19 @@ class LocalHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
 
 
+def startup_trace(message):
+    """Write opt-in startup diagnostics for headless packaging checks."""
+    enabled = (os.environ.get('PAPERFETCH_STARTUP_TRACE') or '').strip().lower()
+    if enabled not in {'1', 'true', 'yes', 'on'}:
+        return
+    try:
+        core.DATA.mkdir(parents=True, exist_ok=True)
+        with (core.DATA / 'startup-trace.log').open('a', encoding='utf-8') as fh:
+            fh.write(message + '\n')
+    except Exception:
+        pass
+
+
 def service_error(message, exc=None):
     """Write a compact, local-only diagnostic without exposing it in the UI."""
     core.DATA.mkdir(parents=True, exist_ok=True)
@@ -266,28 +279,35 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    startup_trace('main: entered')
     core.DATA.mkdir(parents=True, exist_ok=True)
+    startup_trace(f'main: data={core.DATA}')
     # Exit code 3 is reserved for the launcher: it means another healthy
     # instance owns the lock, so a watchdog must not restart in a loop.
     lock = acquire_instance_lock()
+    startup_trace('main: lock acquired')
     try:
         STATUS_FILE.unlink(missing_ok=True)
     except OSError:
         pass
     core.init()
+    startup_trace('main: core initialized')
     port = configured_port()
+    startup_trace(f'main: configured port={port}')
     try:
         server = bind_server(port)
     except OSError as exc:
         service_error(f'无法绑定本地端口 {port}', exc)
         print(f'文献快下无法使用端口 {port}：{exc}', file=sys.stderr, flush=True)
         raise SystemExit(4)
+    startup_trace(f'main: bound port={server.server_port}')
     url = f'http://127.0.0.1:{server.server_port}/'
     lock.seek(0)
     lock.truncate()
     lock.write(url)
     lock.flush()
     STATUS_FILE.write_text(url, encoding='utf-8')
+    startup_trace('main: status written')
     print(f'文献快下运行中：{url}', flush=True)
     if should_open_browser():
         threading.Timer(0.5, lambda: open_default_browser(url)).start()
