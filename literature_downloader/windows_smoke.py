@@ -60,7 +60,7 @@ def wait_for_service(data_dir: Path, process: subprocess.Popen) -> str:
                 html = response.read().decode("utf-8")
             match = re.search(r"const token='([^']+)'", html)
             if match:
-                return match.group(1)
+                return base
             last_error = "首页中未找到本地授权令牌"
         except (OSError, urllib.error.URLError) as exc:
             last_error = str(exc)
